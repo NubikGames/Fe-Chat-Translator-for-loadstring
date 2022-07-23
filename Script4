@@ -1,0 +1,56 @@
+game.Loaded:Wait()
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ChatMain = LocalPlayer.PlayerScripts:WaitForChild("ChatScript"):WaitForChild("ChatMain")
+local MessagePostedEvent
+for _, object in next, getgc(true) do
+   if type(object) ~= "table" then continue end
+   
+   local MessagePosted = rawget(object, "MessagePosted")
+   if not MessagePosted then
+       continue
+   end
+   
+   local Fire = rawget(MessagePosted, "fire")
+   if not Fire then
+       continue
+   end
+   
+   local FunctionScript = getfenv(Fire).script
+   if FunctionScript ~= ChatMain then
+       continue
+   end
+   
+   for _, Event in next, debug.getupvalues(Fire) do
+       if typeof(Event) == "Instance" then
+           MessagePostedEvent = Event
+       end
+   end
+end
+local old;
+old=hookmetamethod(game,"__namecall",newcclosure(function(self,...)
+   local method=getnamecallmethod()
+    if method=="FireServer" and tostring(self)=="SayMessageRequest"and tostring(getcallingscript())~="ChatMain" and not checkcaller() then
+        warn("Game tried to chat for the player through the SayMessageRequest remote event. Attempt denied.")
+        return
+    elseif method=="CaptureFocus" and tostring(self)=="ChatBar" and not checkcaller() then
+        warn("Game tried to send a legit message through the chat as the local player via capturing the chat focus. Attempt denied")
+        return
+    elseif method=="ReportAbuse" and self==game.GetService(game,"Players") and not checkcaller() then
+        warn("Game tried to report the player. Attempt denied")
+        return
+    elseif method=="Fire" and self==MessagePostedEvent and not checkcaller() then
+        warn("Game tried using the MessagePosted bindable event. Attempt denied.")
+        return
+    end
+    return old(self,...)
+end))
+
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Slash then
+        game:GetService'Players'.LocalPlayer.PlayerGui:FindFirstChild("ChatBar", true):CaptureFocus()
+        wait()
+        game:GetService'Players'.LocalPlayer.PlayerGui:FindFirstChild("ChatBar", true).Text = ""
+    end
+end)
